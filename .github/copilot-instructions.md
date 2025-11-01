@@ -4,6 +4,16 @@
 
 This is a TypeScript/Node.js application that provides a Fastify-based API server for analyzing grow operation photos and integrating with Notion. The application receives webhook requests, validates them using HMAC signatures, and processes plant photo analysis jobs.
 
+## Repository Configuration
+
+This repository is configured for optimal use with GitHub Copilot Coding Agent. When working on issues:
+
+- Issues should be well-scoped with clear descriptions and acceptance criteria
+- All changes must include appropriate tests unless test infrastructure doesn't exist
+- Security is paramount - always validate HMAC signatures and never expose secrets
+- Follow the minimal change principle - make the smallest changes necessary
+- Always run build, lint, typecheck, and tests before completing work
+
 ## Tech Stack
 
 - **Runtime**: Node.js >= 20
@@ -179,3 +189,65 @@ Processes plant photo analysis jobs.
   - File download logic for processing plant photos
 - The codebase uses `void` expressions to acknowledge intentionally unused variables during development
 - When implementing the missing integrations, ensure proper error handling and logging
+
+## Task Assignment Best Practices
+
+When creating issues for this repository:
+
+1. **Be Specific**: Provide clear, focused descriptions of what needs to be done
+2. **Define Scope**: Clearly specify which files or areas need changes
+3. **Set Acceptance Criteria**: Include specific requirements like "must include unit tests" or "must maintain HMAC validation"
+4. **Provide Context**: Link to relevant code sections or documentation
+5. **Security First**: Explicitly mention security requirements for any changes
+
+Examples of good issue descriptions:
+- "Add validation for `angle` field in POST /analyze endpoint. Must include Zod schema update and unit test."
+- "Implement rate limiting for webhook endpoint. Use fastify-rate-limit plugin, set to 100 requests/hour. Include integration tests."
+- "Refactor HMAC verification into separate middleware function in src/security/hmac.ts. Must maintain existing security behavior."
+
+## GitHub Copilot Coding Agent Tips
+
+This section helps GitHub Copilot understand how to work most effectively in this repository:
+
+### When to Use Copilot Coding Agent
+
+✅ Good use cases:
+- Adding new API endpoints with clear specifications
+- Writing tests for existing functionality
+- Implementing well-defined features with clear acceptance criteria
+- Refactoring specific functions or modules
+- Updating dependencies with clear upgrade paths
+- Adding validation rules or schema updates
+
+❌ Not recommended for Copilot:
+- Large-scale architectural changes
+- Complex refactoring without clear scope
+- Changes requiring deep business logic understanding
+- Security-critical changes without explicit requirements
+
+### Validation Requirements
+
+Before completing any task, Copilot must:
+1. ✅ Run `pnpm run build` - ensure TypeScript compilation succeeds
+2. ✅ Run `pnpm run lint` - ensure code style compliance
+3. ✅ Run `pnpm run typecheck` - ensure type safety
+4. ✅ Run `pnpm test -- --run` - ensure all tests pass
+5. ✅ Verify no secrets or sensitive data in code changes
+6. ✅ Ensure HMAC verification is not bypassed or weakened
+
+### File Organization
+
+- New routes go in `src/routes/` with clear naming (e.g., `health-check.ts`)
+- New schemas go in `src/domain/payload.ts` or create new schema files if logical grouping makes sense
+- Shared utilities go in `src/utils/` (create if needed)
+- Tests mirror the source structure in `test/` directory
+
+## Expected Development Workflow
+
+1. **Read the issue carefully** - Understand requirements and constraints
+2. **Explore relevant code** - View existing files that will be modified
+3. **Plan minimal changes** - Identify the smallest possible change set
+4. **Implement iteratively** - Make one logical change at a time
+5. **Test continuously** - Run tests after each significant change
+6. **Validate before completion** - Run full build/lint/test suite
+7. **Document changes** - Update this file if workflow or structure changes
