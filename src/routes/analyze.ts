@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
-import { createHmac } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../domain/payload";
-import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping";
+import { createHmac, timingSafeEqual } from "crypto";
+import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
+import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import { updatePhoto, upsertHistory, generateKey } from "../services/notion.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -15,7 +16,19 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const raw = (req as any).rawBody || "";
     const h = createHmac("sha256", secret).update(raw).digest("hex");
-    if (h !== sig) {
+    
+    // Constant-time comparison to prevent timing attacks
+    // Validate signature is hex and correct length
+    if (!/^[0-9a-f]{64}$/i.test(sig)) {
+      return reply.code(401).send({ error: "bad signature" });
+    }
+    try {
+      const hBuf = Buffer.from(h, "hex");
+      const sigBuf = Buffer.from(sig, "hex");
+      if (!timingSafeEqual(hBuf, sigBuf)) {
+        return reply.code(401).send({ error: "bad signature" });
+      }
+    } catch {
       return reply.code(401).send({ error: "bad signature" });
     }
 
@@ -26,7 +39,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
-    const results = await Promise.all(jobs.map(async (job) => {
+    const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
         // 2) call vision provider (omitted; return mock values)
@@ -43,13 +56,11 @@ export default async function analyzeRoute(app: FastifyInstance) {
           "Sev": "Low",
         } as const;
 
-        // 3) map and write to Notion (omitted: client calls)
+        // 3) Write to Notion
         const photoProps = mapWritebacksToPhotos(writebacks);
-        void photoProps; // placeholder to avoid unused var until Notion client is added
-        // await notion.updatePhoto(job.photo_page_url, { ...photoProps, "AI Status": "Reviewed", "Reviewed at": new Date().toISOString() });
+        await updatePhoto(job.photo_page_url, photoProps);
 
-        const key = `${job.photo_page_url}|${job.date}`;
-        void key;
+        const key = generateKey(job.photo_page_url, job.date);
         const historyProps = buildHistoryProps({
           plant_id: job.plant_id,
           date: job.date,
@@ -58,8 +69,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
           log_entry_url: job.log_entry_url,
           wb: writebacks,
         });
-        void historyProps;
-        // await notion.upsertHistory(sha256(key), historyProps);
+        await upsertHistory(key, historyProps);
 
         return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
       } catch (e: any) {
@@ -70,7 +80,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
 
     const response = {
       results,
-      errors: results.filter(r => r.status === "error").map(r => r.error || "error"),
+      errors: results.filter((r) => r.status === "error").map((r) => r.error || "error"),
     };
     const validated = AnalyzeResponseSchema.parse(response);
     return reply.code(200).send(validated);
