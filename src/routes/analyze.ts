@@ -4,6 +4,17 @@ import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "..
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 import { createNotionClient } from "../services/notion-client.js";
 
+/**
+ * Generate SHA-256 hash of a string
+ */
+function generateHash(input: string): string {
+  try {
+    return createHash("sha256").update(input).digest("hex");
+  } catch (error) {
+    throw new Error(`Failed to generate hash: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
+}
+
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
     config: { rawBody: true },
@@ -60,7 +71,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
 
           // Upsert history entry
           const key = `${job.photo_page_url}|${job.date}`;
-          const keyHash = createHash("sha256").update(key).digest("hex");
+          const keyHash = generateHash(key);
           const historyProps = buildHistoryProps({
             plant_id: job.plant_id,
             date: job.date,

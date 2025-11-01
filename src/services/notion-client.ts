@@ -1,5 +1,11 @@
 import { Client } from "@notionhq/client";
 
+// Regular expression for extracting Notion page IDs from URLs
+const PAGE_ID_REGEX = /([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
+
+// ISO date format pattern (YYYY-MM-DD)
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}/;
+
 export interface NotionConfig {
   authToken: string;
   photosDbId?: string;
@@ -60,7 +66,7 @@ export class NotionClient {
    * Extract page ID from Notion URL
    */
   private extractPageId(url: string): string | null {
-    const match = url.match(/([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+    const match = url.match(PAGE_ID_REGEX);
     return match ? match[1].replace(/-/g, "") : null;
   }
 
@@ -75,9 +81,15 @@ export class NotionClient {
 
       // Handle different property types
       if (typeof value === "string") {
-        // Check if it's a date string
-        if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-          notionProps[key] = { date: { start: value } };
+        // Check if it's an ISO date string and validate it's a real date
+        if (ISO_DATE_REGEX.test(value)) {
+          const date = new Date(value);
+          // Validate the date is valid
+          if (!isNaN(date.getTime())) {
+            notionProps[key] = { date: { start: value } };
+          } else {
+            notionProps[key] = { rich_text: [{ text: { content: value } }] };
+          }
         } else {
           notionProps[key] = { rich_text: [{ text: { content: value } }] };
         }
