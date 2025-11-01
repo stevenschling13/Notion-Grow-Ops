@@ -111,8 +111,8 @@ The repository uses GitHub Actions (`.github/workflows/ci.yml`):
 ### Notes for CI
 
 - The workflow handles cases with or without lockfile
-- TypeCheck may be allowed to fail (`|| true`)
-- Uses `pnpm install --frozen-lockfile=false`
+- TypeCheck may be allowed to fail (`|| true`) - This is a temporary measure during development; aim to fix type errors before merging
+- Uses `pnpm install --frozen-lockfile=false` for flexibility during initial development
 
 ## API Endpoints
 
@@ -173,6 +173,9 @@ Processes plant photo analysis jobs.
 ## Additional Notes
 
 - The application uses raw body parsing for HMAC verification
-- Current implementation includes placeholder logic for Notion API integration
-- Vision provider integration is marked as "omitted" with mock data
+- **Work in Progress**: The following areas have placeholder implementations:
+  - Notion API client integration (see commented `notion.updatePhoto` and `notion.upsertHistory` calls in `routes/analyze.ts`)
+  - Vision AI provider integration for photo analysis (currently returns mock data)
+  - File download logic for processing plant photos
 - The codebase uses `void` expressions to acknowledge intentionally unused variables during development
+- When implementing the missing integrations, ensure proper error handling and logging
