@@ -13,19 +13,33 @@ export type HistoryUpsert = {
 // Map writebacks to Photos DB property names
 export function mapWritebacksToPhotos(wb: Writebacks): Record<string, unknown> {
   const props: Record<string, unknown> = {};
-  if (wb["AI Summary"] !== undefined) props["AI Summary"] = wb["AI Summary"];
-  if (wb["Health 0-100"] !== undefined) props["Health 0-100"] = wb["Health 0-100"];
-  if (wb["AI Next Step"] !== undefined) {
-    // Prefer select if configured; also set text as fallback
-    props["AI Next Step (sel)"] = wb["AI Next Step"];
-    props["AI Next Step"] = wb["AI Next Step"];
+  
+  // Direct mapping for simple properties - only access each property once
+  const mappings = [
+    ["AI Summary", "AI Summary"],
+    ["Health 0-100", "Health 0-100"],
+    ["VPD OK", "VPD OK"],
+    ["DLI OK", "DLI OK"],
+    ["CO2 OK", "CO2 OK"],
+    ["Trend", "Trend"],
+    ["DLI mol", "DLI mol"],
+    ["VPD kPa", "VPD kPa"],
+  ] as const;
+  
+  for (const [key, propName] of mappings) {
+    const value = wb[key];
+    if (value !== undefined) {
+      props[propName] = value;
+    }
   }
-  if (wb["VPD OK"] !== undefined) props["VPD OK"] = wb["VPD OK"];
-  if (wb["DLI OK"] !== undefined) props["DLI OK"] = wb["DLI OK"];
-  if (wb["CO2 OK"] !== undefined) props["CO2 OK"] = wb["CO2 OK"];
-  if (wb["Trend"] !== undefined) props["Trend"] = wb["Trend"];
-  if (wb["DLI mol"] !== undefined) props["DLI mol"] = wb["DLI mol"];
-  if (wb["VPD kPa"] !== undefined) props["VPD kPa"] = wb["VPD kPa"];
+  
+  // Special handling for AI Next Step
+  const nextStep = wb["AI Next Step"];
+  if (nextStep !== undefined) {
+    props["AI Next Step (sel)"] = nextStep;
+    props["AI Next Step"] = nextStep;
+  }
+  
   return props;
 }
 
@@ -38,22 +52,41 @@ export function buildHistoryProps(input: {
   log_entry_url?: string;
   wb: Writebacks;
 }): Record<string, unknown> {
-  const nameParts = [input.plant_id, input.date, input.angle].filter(Boolean) as string[];
+  // Build name parts efficiently without intermediate array
+  const nameParts: string[] = [];
+  if (input.plant_id) nameParts.push(input.plant_id);
+  nameParts.push(input.date);
+  if (input.angle) nameParts.push(input.angle);
+  
   const props: Record<string, unknown> = {
     Name: nameParts.join(" - "),
     "Related Photo": [input.photo_page_url],
     Date: input.date,
+    Status: "Complete",
   };
+  
+  // Optional properties - only check once per property
   if (input.log_entry_url) props["Related Log Entry"] = [input.log_entry_url];
   if (input.plant_id) props["userDefined:ID"] = input.plant_id;
-  if (input.wb["AI Summary"] !== undefined) props["AI Summary"] = input.wb["AI Summary"];
-  if (input.wb["Health 0-100"] !== undefined) props["Health 0-100"] = input.wb["Health 0-100"];
-  if (input.wb["DLI mol"] !== undefined) props["DLI mol"] = input.wb["DLI mol"];
-  if (input.wb["VPD kPa"] !== undefined) props["VPD kPa"] = input.wb["VPD kPa"];
-  if (input.wb["VPD OK"] !== undefined) props["VPD OK"] = input.wb["VPD OK"];
-  if (input.wb["DLI OK"] !== undefined) props["DLI OK"] = input.wb["DLI OK"];
-  if (input.wb["CO2 OK"] !== undefined) props["CO2 OK"] = input.wb["CO2 OK"];
-  if (input.wb["Sev"] !== undefined) props["Sev"] = input.wb["Sev"];
-  props["Status"] = "Complete";
+  
+  // Map writeback properties - only access each once
+  const wbMappings = [
+    ["AI Summary", "AI Summary"],
+    ["Health 0-100", "Health 0-100"],
+    ["DLI mol", "DLI mol"],
+    ["VPD kPa", "VPD kPa"],
+    ["VPD OK", "VPD OK"],
+    ["DLI OK", "DLI OK"],
+    ["CO2 OK", "CO2 OK"],
+    ["Sev", "Sev"],
+  ] as const;
+  
+  for (const [key, propName] of wbMappings) {
+    const value = input.wb[key];
+    if (value !== undefined) {
+      props[propName] = value;
+    }
+  }
+  
   return props;
 }

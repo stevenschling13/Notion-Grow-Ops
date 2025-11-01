@@ -15,7 +15,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const raw = req.rawBody || "";
     const h = createHmac("sha256", secret).update(raw).digest();
-    const provided = Buffer.from(String(sig), "hex");
+    const provided = Buffer.from(sig, "hex");
     if (provided.length !== h.length || !timingSafeEqual(h, provided)) {
       return reply.code(401).send({ error: "bad signature" });
     }
@@ -62,16 +62,25 @@ export default async function analyzeRoute(app: FastifyInstance) {
         void historyProps;
         // await notion.upsertHistory(sha256(key), historyProps);
 
-        return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
+        return { photo_page_url: job.photo_page_url, status: "ok" as const, writebacks };
       } catch (e: unknown) {
         // On error: leave Draft and append error string to AI Analysis
-        return { photo_page_url: job.photo_page_url, status: "error", error: e instanceof Error ? e.message : "analysis failed" };
+        const error = e instanceof Error ? e.message : "analysis failed";
+        return { photo_page_url: job.photo_page_url, status: "error" as const, error };
       }
     }));
 
+    // Collect errors efficiently during a single iteration
+    const errors: string[] = [];
+    for (const result of results) {
+      if (result.status === "error") {
+        errors.push(result.error || "error");
+      }
+    }
+
     const response = {
       results,
-      errors: results.filter((r) => r.status === "error").map((r) => r.error || "error"),
+      errors,
     };
     const validated = AnalyzeResponseSchema.parse(response);
     return reply.code(200).send(validated);
