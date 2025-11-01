@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { createHmac } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../domain/payload";
-import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping";
+import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
+import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -26,7 +26,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
-    const results = await Promise.all(jobs.map(async (job) => {
+    const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
         // 2) call vision provider (omitted; return mock values)
@@ -70,7 +70,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
 
     const response = {
       results,
-      errors: results.filter(r => r.status === "error").map(r => r.error || "error"),
+      errors: results.filter((r) => r.status === "error").map((r) => r.error || "error"),
     };
     const validated = AnalyzeResponseSchema.parse(response);
     return reply.code(200).send(validated);
