@@ -170,6 +170,61 @@ Processes plant photo analysis jobs.
 6. Update documentation if adding new features
 7. Follow existing code style and conventions
 
+## Tool Calling and Efficiency
+
+<tool_calling>
+You have the capability to call multiple tools in a single response.
+For maximum efficiency, whenever you need to perform multiple independent
+operations, ALWAYS call tools simultaneously whenever the actions can be
+done in parallel rather than sequentially (e.g. git status + git diff,
+multiple reads/edits to different files). Especially when exploring
+repository, searching, reading files, viewing directories, validating
+changes. For example, you can read 3 different files in parallel, or edit
+different files in parallel. However, if some tool calls depend on previous
+calls to inform dependent values like the parameters, do NOT call these
+tools in parallel and instead call them sequentially.
+</tool_calling>
+
+## Best Use Cases for Copilot Coding Agent
+
+### Ideally Suited Tasks
+- Bug fixes with clear reproduction steps
+- UI tweaks and visual adjustments
+- Improving test coverage
+- Documentation updates
+- Addressing technical debt
+- Accessibility improvements
+- Adding new API endpoints following existing patterns
+- Refactoring small, well-defined sections of code
+
+### Tasks Better Suited for Human Review
+- Broad architectural changes or complex refactoring
+- Deep domain knowledge or business logic decisions
+- Production-critical or security-sensitive work
+- Ambiguous or open-ended assignments
+- Major version upgrades of dependencies
+
+## Working with the Coding Agent
+
+### Issue Writing Guidelines
+When creating issues for Copilot to work on:
+1. Provide a clear, concise problem statement
+2. Include explicit acceptance criteria
+3. Specify which files should be changed (if known)
+4. Indicate whether unit tests are expected
+5. Break large tasks into smaller, focused issues
+
+### Iteration and Feedback
+- Copilot will create a branch and open a PR for the work
+- You can leave comments and mention `@copilot` for revisions
+- Review the code and provide specific feedback
+- Copilot will iterate based on your guidance
+
+### Monitoring Progress
+- Check the PR for commits and progress updates
+- Review the PR description for a checklist of completed and pending work
+- Use the GitHub Agents tab to track session logs
+
 ## Additional Notes
 
 - The application uses raw body parsing for HMAC verification
