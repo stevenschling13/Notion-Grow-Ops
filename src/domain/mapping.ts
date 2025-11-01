@@ -1,4 +1,4 @@
-import type { Writebacks } from "./payload";
+import type { Writebacks } from "./payload.js";
 
 export type PhotosUpdate = {
   pageUrl: string;
