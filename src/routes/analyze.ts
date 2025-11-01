@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { createHmac, timingSafeEqual } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
+import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob, type AnalyzeResult } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
@@ -27,7 +27,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
-    const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
+    const results = await Promise.all(jobs.map(async (job: AnalyzeJob): Promise<AnalyzeResult> => {
       try {
         // 1) download first file (omitted)
         // 2) call vision provider (omitted; return mock values)
@@ -62,10 +62,10 @@ export default async function analyzeRoute(app: FastifyInstance) {
         void historyProps;
         // await notion.upsertHistory(sha256(key), historyProps);
 
-        return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
+        return { photo_page_url: job.photo_page_url, status: "ok" as const, writebacks };
       } catch (e: unknown) {
         // On error: leave Draft and append error string to AI Analysis
-        return { photo_page_url: job.photo_page_url, status: "error", error: e instanceof Error ? e.message : "analysis failed" };
+        return { photo_page_url: job.photo_page_url, status: "error" as const, error: e instanceof Error ? e.message : "analysis failed" };
       }
     }));
 
