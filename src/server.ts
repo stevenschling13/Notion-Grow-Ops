@@ -1,6 +1,6 @@
 import Fastify from "fastify";
-import rawBody from "@fastify/raw-body";
-import analyzeRoute from "./routes/analyze";
+import rawBody from "fastify-raw-body";
+import analyzeRoute from "./routes/analyze.js";
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
