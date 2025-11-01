@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import rawBody from "@fastify/raw-body";
+import rawBody from "fastify-raw-body";
 import analyzeRoute from "./routes/analyze";
 
 export async function buildServer() {
