@@ -1,7 +1,19 @@
 import { FastifyInstance } from "fastify";
-import { createHmac } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../domain/payload";
-import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping";
+import { createHmac, createHash } from "crypto";
+import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
+import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import { createNotionClient } from "../services/notion-client.js";
+
+/**
+ * Generate SHA-256 hash of a string
+ */
+function generateHash(input: string): string {
+  try {
+    return createHash("sha256").update(input).digest("hex");
+  } catch (error) {
+    throw new Error(`Failed to generate hash: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
+}
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -26,7 +38,10 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
-    const results = await Promise.all(jobs.map(async (job) => {
+    // Initialize Notion client (optional)
+    const notionClient = createNotionClient();
+
+    const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
         // 2) call vision provider (omitted; return mock values)
@@ -43,23 +58,30 @@ export default async function analyzeRoute(app: FastifyInstance) {
           "Sev": "Low",
         } as const;
 
-        // 3) map and write to Notion (omitted: client calls)
+        // 3) map and write to Notion
         const photoProps = mapWritebacksToPhotos(writebacks);
-        void photoProps; // placeholder to avoid unused var until Notion client is added
-        // await notion.updatePhoto(job.photo_page_url, { ...photoProps, "AI Status": "Reviewed", "Reviewed at": new Date().toISOString() });
+        
+        if (notionClient) {
+          // Update photo page with AI analysis results
+          await notionClient.updatePhotoPage(job.photo_page_url, {
+            ...photoProps,
+            "AI Status": "Reviewed",
+            "Reviewed at": new Date().toISOString(),
+          });
 
-        const key = `${job.photo_page_url}|${job.date}`;
-        void key;
-        const historyProps = buildHistoryProps({
-          plant_id: job.plant_id,
-          date: job.date,
-          angle: job.angle,
-          photo_page_url: job.photo_page_url,
-          log_entry_url: job.log_entry_url,
-          wb: writebacks,
-        });
-        void historyProps;
-        // await notion.upsertHistory(sha256(key), historyProps);
+          // Upsert history entry
+          const key = `${job.photo_page_url}|${job.date}`;
+          const keyHash = generateHash(key);
+          const historyProps = buildHistoryProps({
+            plant_id: job.plant_id,
+            date: job.date,
+            angle: job.angle,
+            photo_page_url: job.photo_page_url,
+            log_entry_url: job.log_entry_url,
+            wb: writebacks,
+          });
+          await notionClient.upsertHistoryEntry(keyHash, historyProps);
+        }
 
         return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
       } catch (e: any) {
@@ -70,7 +92,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
 
     const response = {
       results,
-      errors: results.filter(r => r.status === "error").map(r => r.error || "error"),
+      errors: results.filter((r) => r.status === "error").map((r) => r.error || "error"),
     };
     const validated = AnalyzeResponseSchema.parse(response);
     return reply.code(200).send(validated);
