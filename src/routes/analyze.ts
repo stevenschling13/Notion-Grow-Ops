@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
-import { createHmac } from "crypto";
+import { createHmac, createHash } from "crypto";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import { createNotionClient } from "../services/notion-client.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -26,6 +27,9 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
+    // Initialize Notion client (optional)
+    const notionClient = createNotionClient();
+
     const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
@@ -43,23 +47,30 @@ export default async function analyzeRoute(app: FastifyInstance) {
           "Sev": "Low",
         } as const;
 
-        // 3) map and write to Notion (omitted: client calls)
+        // 3) map and write to Notion
         const photoProps = mapWritebacksToPhotos(writebacks);
-        void photoProps; // placeholder to avoid unused var until Notion client is added
-        // await notion.updatePhoto(job.photo_page_url, { ...photoProps, "AI Status": "Reviewed", "Reviewed at": new Date().toISOString() });
+        
+        if (notionClient) {
+          // Update photo page with AI analysis results
+          await notionClient.updatePhotoPage(job.photo_page_url, {
+            ...photoProps,
+            "AI Status": "Reviewed",
+            "Reviewed at": new Date().toISOString(),
+          });
 
-        const key = `${job.photo_page_url}|${job.date}`;
-        void key;
-        const historyProps = buildHistoryProps({
-          plant_id: job.plant_id,
-          date: job.date,
-          angle: job.angle,
-          photo_page_url: job.photo_page_url,
-          log_entry_url: job.log_entry_url,
-          wb: writebacks,
-        });
-        void historyProps;
-        // await notion.upsertHistory(sha256(key), historyProps);
+          // Upsert history entry
+          const key = `${job.photo_page_url}|${job.date}`;
+          const keyHash = createHash("sha256").update(key).digest("hex");
+          const historyProps = buildHistoryProps({
+            plant_id: job.plant_id,
+            date: job.date,
+            angle: job.angle,
+            photo_page_url: job.photo_page_url,
+            log_entry_url: job.log_entry_url,
+            wb: writebacks,
+          });
+          await notionClient.upsertHistoryEntry(keyHash, historyProps);
+        }
 
         return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
       } catch (e: any) {
