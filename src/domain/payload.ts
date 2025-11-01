@@ -59,6 +59,8 @@ export const AnalyzeResultSchema = z.object({
   writebacks: WritebacksSchema.optional(),
 });
 
+export type AnalyzeResult = z.infer<typeof AnalyzeResultSchema>;
+
 export const AnalyzeResponseSchema = z.object({
   results: z.array(AnalyzeResultSchema),
   errors: z.array(z.string()),
