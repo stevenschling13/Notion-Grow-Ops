@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Debug Server",
       "skipFiles": ["<node_internals>/**"],
-      "program": "${workspaceFolder}/src/index.ts",
+      "program": "${workspaceFolder}/dist/index.js",
       "preLaunchTask": "npm: build",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "env": {

@@ -22,12 +22,7 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "github.copilot.enable": {
-    "*": true,
-    "yaml": true,
-    "plaintext": false,
-    "markdown": true,
-    "typescript": true,
-    "javascript": true
+    "*": true
   },
   "github.copilot.editor.enableAutoCompletions": true
 }

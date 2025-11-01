@@ -13,7 +13,7 @@ This repository is configured for optimal development with Visual Studio Code an
 
 1. **Open the project in VS Code:**
    ```bash
-   code /path/to/Notion-Grow-Ops
+   code ./Notion-Grow-Ops
    ```
 
 2. **Install recommended extensions:**
