@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { createHmac } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../domain/payload";
-import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping";
+import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
+import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -13,7 +13,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     if (!secret || typeof sig !== "string") {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    const raw = (req as any).rawBody || "";
+    const raw = (req as { rawBody?: string }).rawBody || "";
     const h = createHmac("sha256", secret).update(raw).digest("hex");
     if (h !== sig) {
       return reply.code(401).send({ error: "bad signature" });
@@ -26,7 +26,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
-    const results = await Promise.all(jobs.map(async (job) => {
+    const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
         // 2) call vision provider (omitted; return mock values)
@@ -62,15 +62,16 @@ export default async function analyzeRoute(app: FastifyInstance) {
         // await notion.upsertHistory(sha256(key), historyProps);
 
         return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
-      } catch (e: any) {
+      } catch (e: unknown) {
         // On error: leave Draft and append error string to AI Analysis
-        return { photo_page_url: job.photo_page_url, status: "error", error: e?.message || "analysis failed" };
+        const error = e instanceof Error ? e.message : "analysis failed";
+        return { photo_page_url: job.photo_page_url, status: "error" as const, error };
       }
     }));
 
     const response = {
       results,
-      errors: results.filter(r => r.status === "error").map(r => r.error || "error"),
+      errors: results.filter((r): r is typeof r & { status: "error" } => r.status === "error").map(r => r.error || "error"),
     };
     const validated = AnalyzeResponseSchema.parse(response);
     return reply.code(200).send(validated);
