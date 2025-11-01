@@ -179,7 +179,7 @@ operations, ALWAYS call tools simultaneously whenever the actions can be
 done in parallel rather than sequentially (e.g. git status + git diff,
 multiple reads/edits to different files). Especially when exploring
 repository, searching, reading files, viewing directories, validating
-changes. For Example you can read 3 different files parallelly, or edit
+changes. For example, you can read 3 different files in parallel, or edit
 different files in parallel. However, if some tool calls depend on previous
 calls to inform dependent values like the parameters, do NOT call these
 tools in parallel and instead call them sequentially.
