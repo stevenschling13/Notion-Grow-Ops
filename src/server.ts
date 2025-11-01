@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
-import rawBody from '@fastify/raw-body';
-import analyzeRoute from './routes/analyze';
+import rawBody from 'fastify-raw-body';
+import analyzeRoute from './routes/analyze.js';
 import rateLimit from '@fastify/rate-limit';
 
 export async function buildServer() {
