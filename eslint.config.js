@@ -15,6 +15,7 @@ export default [
       globals: {
         process: 'readonly',
         console: 'readonly',
+        isNaN: 'readonly',
         Buffer: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',

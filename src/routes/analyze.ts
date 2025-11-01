@@ -18,12 +18,13 @@ export default async function analyzeRoute(app: FastifyInstance) {
     const h = createHmac("sha256", secret).update(raw).digest("hex");
     
     // Constant-time comparison to prevent timing attacks
-    if (h.length !== sig.length) {
+    // Validate signature is hex and correct length
+    if (!/^[0-9a-f]{64}$/i.test(sig)) {
       return reply.code(401).send({ error: "bad signature" });
     }
     try {
       const hBuf = Buffer.from(h, "hex");
-      const sigBuf = Buffer.from(String(sig), "hex");
+      const sigBuf = Buffer.from(sig, "hex");
       if (!timingSafeEqual(hBuf, sigBuf)) {
         return reply.code(401).send({ error: "bad signature" });
       }

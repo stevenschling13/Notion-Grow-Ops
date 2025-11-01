@@ -85,8 +85,9 @@ async function withRetry<T>(
       // If it's a 429 rate limit error, respect the Retry-After header
       if (error?.status === 429 || error?.code === "rate_limited") {
         const retryAfter = error?.headers?.["retry-after"];
-        const delayMs = retryAfter 
-          ? parseInt(retryAfter, 10) * 1000 
+        const retryAfterMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : NaN;
+        const delayMs = !isNaN(retryAfterMs) && retryAfterMs > 0
+          ? retryAfterMs
           : Math.min(config.initialDelay * Math.pow(2, attempt), config.maxDelay);
         
         if (attempt < config.maxRetries) {
