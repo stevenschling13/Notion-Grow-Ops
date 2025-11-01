@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 
@@ -14,8 +14,9 @@ export default async function analyzeRoute(app: FastifyInstance) {
       return reply.code(401).send({ error: "unauthorized" });
     }
     const raw = req.rawBody || "";
-    const h = createHmac("sha256", secret).update(raw).digest("hex");
-    if (h !== sig) {
+    const h = createHmac("sha256", secret).update(raw).digest();
+    const provided = Buffer.from(String(sig), "hex");
+    if (provided.length !== h.length || !timingSafeEqual(h, provided)) {
       return reply.code(401).send({ error: "bad signature" });
     }
 
