@@ -7,6 +7,7 @@ describe("HMAC verification", () => {
 
   beforeAll(async () => {
     process.env.HMAC_SECRET = "test-secret-key";
+    process.env.LOG_LEVEL = "silent";
     app = await buildServer();
   });
 
