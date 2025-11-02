@@ -76,7 +76,13 @@ export default async function analyzeRoute(app: FastifyInstance) {
       results,
       errors: results.filter((r) => r.status === "error").map((r) => r.error ?? "unknown error"),
     };
-    const validated = AnalyzeResponseSchema.parse(response);
-    return reply.code(200).send(validated);
+    try {
+      const validated = AnalyzeResponseSchema.parse(response);
+      return reply.code(200).send(validated);
+    } catch (validationError) {
+      // This should not happen with correct implementation, but log for debugging
+      req.log.error({ validationError, response }, "Response validation failed");
+      return reply.code(500).send({ error: "internal server error" });
+    }
   });
 }
