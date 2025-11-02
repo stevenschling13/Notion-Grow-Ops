@@ -35,6 +35,7 @@ export class NotionClient {
    */
   async upsertHistory(key: string, properties: Record<string, unknown>): Promise<void> {
     // First, check if a page with this key exists using the database query
+    // Note: In Notion SDK v5.x, databases are queried via dataSources.query()
     const historyDbId = process.env.NOTION_HISTORY_DB_ID;
     if (!historyDbId) {
       throw new Error("NOTION_HISTORY_DB_ID environment variable is not set");
@@ -62,9 +63,9 @@ export class NotionClient {
         properties: notionProperties as UpdatePageParameters["properties"],
       });
     } else {
-      // Create new page
+      // Create new page - note that parent uses database_id, not data_source_id
       await this.client.pages.create({
-        parent: { type: "data_source_id", data_source_id: historyDbId },
+        parent: { type: "database_id", database_id: historyDbId },
         properties: notionProperties as CreatePageParameters["properties"],
       });
     }

@@ -144,7 +144,7 @@ describe("NotionClient", () => {
       });
 
       expect(mockNotionClient.pages.create).toHaveBeenCalledWith({
-        parent: { type: "data_source_id", data_source_id: "test-db-id" },
+        parent: { type: "database_id", database_id: "test-db-id" },
         properties: expect.objectContaining({
           Key: expect.any(Object),
           Name: expect.any(Object),
