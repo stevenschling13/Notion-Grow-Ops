@@ -1,0 +1,94 @@
+name: Notion Issue Sync
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, assigned, closed, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build payload
+        id: payload
+        run: |
+          cat > payload.json << 'JSON'
+          {
+            "action": "${{ github.event.action }}",
+            "issue": {
+              "number": ${{ github.event.issue.number }},
+              "title": "${{ github.event.issue.title }}",
+              "html_url": "${{ github.event.issue.html_url }}",
+              "state": "${{ github.event.issue.state }}",
+              "labels": ${{ toJson(github.event.issue.labels) }},
+              "assignees": ${{ toJson(github.event.issue.assignees) }}
+            },
+            "repository": "${{ github.repository }}"
+          }
+          JSON
+
+      - name: Upsert in Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_ISSUES_DB_ID: ${{ secrets.NOTION_ISSUES_DB_ID }}
+        run: |
+          sudo apt-get update -y >/dev/null
+          sudo apt-get install -y jq >/dev/null
+
+          ISSUE_NUMBER=$(jq -r '.issue.number' payload.json)
+          ISSUE_URL=$(jq -r '.issue.html_url' payload.json)
+          TITLE=$(jq -r '.issue.title' payload.json)
+          STATE=$(jq -r '.issue.state' payload.json)
+          LABELS=$(jq -r '[.issue.labels[].name] | join(",")' payload.json)
+          ASSIGNEES=$(jq -r '[.issue.assignees[].login] | join(",")' payload.json)
+
+          # Query by Issue Number
+          QUERY=$(cat <<Q
+          {
+            "filter": {
+              "property": "Issue Number",
+              "number": { "equals": $ISSUE_NUMBER }
+            },
+            "page_size": 1
+          }
+          Q)
+
+          SEARCH=$(curl -s -X POST "https://api.notion.com/v1/databases/$NOTION_ISSUES_DB_ID/query" \
+            -H "Authorization: Bearer $NOTION_TOKEN" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            --data "$QUERY")
+          PAGE_ID=$(echo "$SEARCH" | jq -r '.results[0].id // empty')
+
+          # Build properties
+          PROPS=$(jq -n --arg title "$TITLE" --arg url "$ISSUE_URL" --arg state "$STATE" \
+                     --arg labels "$LABELS" --arg assignees "$ASSIGNEES" \
+                     --argjson number $ISSUE_NUMBER '{
+            properties: {
+              Name: { title: [{ text: { content: $title } }] },
+              "Issue Number": { number: $number },
+              "Issue URL": { url: $url },
+              State: { select: { name: $state } },
+              Labels: { multi_select: ( ($labels|split(",")|map(select(length>0)|{name:.})) ) },
+              Assignee: { rich_text: [{ text: { content: $assignees } }] },
+              "Last Synced": { date: { start: (now|todate) } }
+            }
+          }')
+
+          if [ -z "$PAGE_ID" ]; then
+            DATA=$(jq -n --arg db "$NOTION_ISSUES_DB_ID" --argjson props "$PROPS" \
+                     '{ parent: { database_id: $db } } + $props')
+            curl -s -X POST "https://api.notion.com/v1/pages" \
+              -H "Authorization: Bearer $NOTION_TOKEN" \
+              -H "Notion-Version: 2022-06-28" \
+              -H "Content-Type: application/json" \
+              --data "$DATA" >/dev/null
+          else
+            curl -s -X PATCH "https://api.notion.com/v1/pages/$PAGE_ID" \
+              -H "Authorization: Bearer $NOTION_TOKEN" \
+              -H "Notion-Version: 2022-06-28" \
+              -H "Content-Type: application/json" \
+              --data "$PROPS" >/dev/null
+          fi
