@@ -26,6 +26,7 @@ export function mapWritebacksToPhotos(wb: Writebacks): Record<string, unknown> {
   if (wb["Trend"] !== undefined) props["Trend"] = wb["Trend"];
   if (wb["DLI mol"] !== undefined) props["DLI mol"] = wb["DLI mol"];
   if (wb["VPD kPa"] !== undefined) props["VPD kPa"] = wb["VPD kPa"];
+  if (wb["Sev"] !== undefined) props["Sev"] = wb["Sev"];
   return props;
 }
 

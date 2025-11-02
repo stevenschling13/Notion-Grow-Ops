@@ -26,9 +26,9 @@ jobs:
           run_install: false
 
       - run: pnpm --version
-      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm install --frozen-lockfile
 
       - run: pnpm run build
       - run: pnpm run lint
-      - run: pnpm run typecheck || true
+      - run: pnpm run typecheck
       - run: pnpm test -- --run
