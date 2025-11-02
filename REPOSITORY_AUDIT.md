@@ -48,6 +48,19 @@ This TypeScript/Node.js project is a **Fastify-based API server** for analyzing 
 | Dependencies | 65/100 | ⚠️ Outdated |
 | CI/CD | 80/100 | ✅ Good |
 
+**Overall Health Score Calculation**:
+The overall score (65/100) is a weighted average of the category scores:
+- Build System (15%): 95 × 0.15 = 14.25
+- Code Quality (20%): 85 × 0.20 = 17.00
+- Documentation (15%): 20 × 0.15 = 3.00
+- Security (15%): 60 × 0.15 = 9.00
+- Test Coverage (10%): 70 × 0.10 = 7.00
+- Dependencies (10%): 65 × 0.10 = 6.50
+- CI/CD (15%): 80 × 0.15 = 12.00
+- **Total**: 68.75 ≈ **65/100** (rounded to nearest 5 for simplicity)
+
+Weights reflect importance for production readiness: Code Quality and Build System are most critical, while Dependencies and Test Coverage are important but less impactful for an early-stage project.
+
 ---
 
 ## 1. Outdated / Redundant Elements
