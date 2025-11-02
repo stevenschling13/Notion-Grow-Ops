@@ -6,6 +6,15 @@ This document explains how to use the GitHub Actions workflow that syncs GitHub 
 
 The `notion-issues-sync.yml` workflow provides bidirectional synchronization between GitHub issues and a Notion database. It can be triggered automatically when issues are created, edited, or closed, or manually via `workflow_dispatch` for testing.
 
+### Features
+
+- **Automatic sync**: Triggers on issue events (opened, edited, closed, reopened)
+- **Manual testing**: Create test issues or sync existing ones via workflow_dispatch
+- **Error handling**: Comprehensive error messages and validation
+- **State management**: Properly handles issue state transitions (open/closed)
+- **Smart updates**: Updates existing Notion pages instead of creating duplicates
+- **Detailed logging**: Provides clear feedback on sync operations
+
 ## Prerequisites
 
 ### Required Secrets
@@ -135,3 +144,13 @@ The workflow provides a summary in the Actions run page showing:
 - Test issues created via workflow_dispatch include a note about automatic creation
 - The sync is idempotent—running it multiple times on the same issue is safe
 - Pages are matched by Issue Number to update existing pages rather than creating duplicates
+- When creating a test issue with state "closed", the issue is closed immediately after creation before syncing to ensure the correct state appears in Notion
+- The workflow includes comprehensive error handling with detailed error messages for troubleshooting
+
+## Recent Improvements
+
+- **Enhanced error handling**: Added try-catch blocks with detailed Notion API error messages
+- **Fixed assignee handling**: Properly handles cases where issue has no assignee
+- **State synchronization**: Test issues with "closed" state are now closed before syncing to Notion, ensuring correct state from the start
+- **Better logging**: Added more detailed console output during sync operations including labels and assignee information
+- **Input validation**: Added checks for required environment variables before attempting to sync

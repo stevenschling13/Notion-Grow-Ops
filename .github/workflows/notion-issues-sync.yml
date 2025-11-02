@@ -58,11 +58,26 @@ jobs:
               title: '${{ github.event.inputs.issue_title }}',
               body: 'This issue was created automatically to test the Notion integration.\n\nTriggered by workflow_dispatch at ${{ github.run_id }}'
             });
+            
+            let finalState = issue.state;
+            
+            // Close immediately if requested state is closed
+            if ('${{ github.event.inputs.issue_state }}' === 'closed') {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed'
+              });
+              finalState = 'closed';
+              console.log(`Closed test issue #${issue.number} as requested`);
+            }
+            
             core.setOutput('issue_number', issue.number);
             core.setOutput('issue_url', issue.html_url);
             core.setOutput('issue_title', issue.title);
-            core.setOutput('issue_state', issue.state);
-            console.log(`Created test issue #${issue.number}: ${issue.html_url}`);
+            core.setOutput('issue_state', finalState);
+            console.log(`Created test issue #${issue.number}: ${issue.html_url} (state: ${finalState})`);
             return issue.number;
 
       - name: Get issue details (manual trigger with issue_number)
@@ -91,118 +106,130 @@ jobs:
           ISSUE_URL: ${{ github.event_name == 'issues' && github.event.issue.html_url || steps.create-issue.outputs.issue_url || steps.get-issue.outputs.issue_url }}
           ISSUE_STATE: ${{ github.event_name == 'issues' && github.event.issue.state || steps.create-issue.outputs.issue_state || steps.get-issue.outputs.issue_state }}
           ISSUE_LABELS: ${{ github.event_name == 'issues' && toJSON(github.event.issue.labels) || '[]' }}
-          ISSUE_ASSIGNEE: ${{ github.event_name == 'issues' && github.event.issue.assignee.login || '' }}
+          ISSUE_ASSIGNEE: ${{ github.event_name == 'issues' && (github.event.issue.assignee && github.event.issue.assignee.login || '') || '' }}
         run: |
           node --input-type=module <<'EOF'
           import { Client } from '@notionhq/client';
 
-          const notion = new Client({ auth: process.env.NOTION_TOKEN });
-          const databaseId = process.env.NOTION_ISSUES_DB_ID;
-
-          const issueNumber = parseInt(process.env.ISSUE_NUMBER);
-          const issueTitle = process.env.ISSUE_TITLE;
-          const issueUrl = process.env.ISSUE_URL;
-          const issueState = process.env.ISSUE_STATE;
-          const issueLabels = JSON.parse(process.env.ISSUE_LABELS || '[]');
-          const issueAssignee = process.env.ISSUE_ASSIGNEE || null;
-
-          console.log(`Syncing issue #${issueNumber} to Notion...`);
-          console.log(`Title: ${issueTitle}`);
-          console.log(`State: ${issueState}`);
-          console.log(`URL: ${issueUrl}`);
-
-          // Search for existing page with this issue number
-          const response = await notion.databases.query({
-            database_id: databaseId,
-            filter: {
-              property: 'Issue Number',
-              number: {
-                equals: issueNumber
+          async function syncToNotion() {
+            try {
+              // Validate required environment variables
+              if (!process.env.NOTION_TOKEN) {
+                throw new Error('NOTION_TOKEN is not set');
               }
-            }
-          });
+              if (!process.env.NOTION_ISSUES_DB_ID) {
+                throw new Error('NOTION_ISSUES_DB_ID is not set');
+              }
 
-          const properties = {
-            'Name': {
-              title: [
-                {
-                  text: {
-                    content: issueTitle
+              const notion = new Client({ auth: process.env.NOTION_TOKEN });
+              const databaseId = process.env.NOTION_ISSUES_DB_ID;
+
+              const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+              const issueTitle = process.env.ISSUE_TITLE;
+              const issueUrl = process.env.ISSUE_URL;
+              const issueState = process.env.ISSUE_STATE;
+              const issueLabels = JSON.parse(process.env.ISSUE_LABELS || '[]');
+              const issueAssignee = process.env.ISSUE_ASSIGNEE || null;
+
+              console.log(`Syncing issue #${issueNumber} to Notion...`);
+              console.log(`Title: ${issueTitle}`);
+              console.log(`State: ${issueState}`);
+              console.log(`URL: ${issueUrl}`);
+              if (issueLabels.length > 0) {
+                console.log(`Labels: ${issueLabels.map(l => l.name).join(', ')}`);
+              }
+              if (issueAssignee) {
+                console.log(`Assignee: ${issueAssignee}`);
+              }
+
+              // Search for existing page with this issue number
+              const response = await notion.databases.query({
+                database_id: databaseId,
+                filter: {
+                  property: 'Issue Number',
+                  number: {
+                    equals: issueNumber
                   }
                 }
-              ]
-            },
-            'Issue Number': {
-              number: issueNumber
-            },
-            'Issue URL': {
-              url: issueUrl
-            },
-            'State': {
-              select: {
-                name: issueState === 'open' ? 'open' : 'closed'
-              }
-            },
-            'Last Synced': {
-              date: {
-                start: new Date().toISOString()
-              }
-            }
-          };
+              });
 
-          // Add labels if present
-          if (issueLabels.length > 0) {
-            properties['Labels'] = {
-              multi_select: issueLabels.map(label => ({ name: label.name }))
-            };
-          }
-
-          // Add assignee if present
-          if (issueAssignee) {
-            properties['Assignee'] = {
-              rich_text: [
-                {
-                  text: {
-                    content: issueAssignee
+              const properties = {
+                'Name': {
+                  title: [
+                    {
+                      text: {
+                        content: issueTitle
+                      }
+                    }
+                  ]
+                },
+                'Issue Number': {
+                  number: issueNumber
+                },
+                'Issue URL': {
+                  url: issueUrl
+                },
+                'State': {
+                  select: {
+                    name: issueState === 'open' ? 'open' : 'closed'
+                  }
+                },
+                'Last Synced': {
+                  date: {
+                    start: new Date().toISOString()
                   }
                 }
-              ]
-            };
+              };
+
+              // Add labels if present
+              if (issueLabels.length > 0) {
+                properties['Labels'] = {
+                  multi_select: issueLabels.map(label => ({ name: label.name }))
+                };
+              }
+
+              // Add assignee if present
+              if (issueAssignee) {
+                properties['Assignee'] = {
+                  rich_text: [
+                    {
+                      text: {
+                        content: issueAssignee
+                      }
+                    }
+                  ]
+                };
+              }
+
+              if (response.results.length > 0) {
+                // Update existing page
+                const pageId = response.results[0].id;
+                await notion.pages.update({
+                  page_id: pageId,
+                  properties
+                });
+                console.log(`✓ Updated existing Notion page: ${pageId}`);
+              } else {
+                // Create new page
+                const newPage = await notion.pages.create({
+                  parent: { database_id: databaseId },
+                  properties
+                });
+                console.log(`✓ Created new Notion page: ${newPage.id}`);
+              }
+
+              console.log(`Successfully synced issue #${issueNumber} to Notion database`);
+            } catch (error) {
+              console.error('Error syncing to Notion:', error.message);
+              if (error.body) {
+                console.error('Notion API error details:', JSON.stringify(error.body, null, 2));
+              }
+              process.exit(1);
+            }
           }
 
-          if (response.results.length > 0) {
-            // Update existing page
-            const pageId = response.results[0].id;
-            await notion.pages.update({
-              page_id: pageId,
-              properties
-            });
-            console.log(`✓ Updated existing Notion page: ${pageId}`);
-          } else {
-            // Create new page
-            const newPage = await notion.pages.create({
-              parent: { database_id: databaseId },
-              properties
-            });
-            console.log(`✓ Created new Notion page: ${newPage.id}`);
-          }
-
-          console.log(`Successfully synced issue #${issueNumber} to Notion database`);
+          syncToNotion();
           EOF
-
-      - name: Close test issue (workflow_dispatch only, if state is closed)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.issue_number == '' && github.event.inputs.issue_state == 'closed'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issueNumber = ${{ steps.create-issue.outputs.issue_number }};
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              state: 'closed'
-            });
-            console.log(`Closed test issue #${issueNumber}`);
 
       - name: Summary
         run: |
