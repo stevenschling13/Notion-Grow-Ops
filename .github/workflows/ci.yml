@@ -1,34 +1,48 @@
-name: ci
-on: [push, pull_request]
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # If no lockfile, set up Node without caching to avoid error
-      - uses: actions/setup-node@v4
-        if: ${{ hashFiles('pnpm-lock.yaml') == '' }}
-        with:
-          node-version: '20'
-
-      # If lockfile exists, enable pnpm cache
-      - uses: actions/setup-node@v4
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-
-      - uses: pnpm/action-setup@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
-      - run: pnpm --version
-      - run: pnpm install --frozen-lockfile=false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - run: pnpm run build
-      - run: pnpm run lint
-      - run: pnpm run typecheck || true
-      - run: pnpm test -- --run
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Run tests
+        run: pnpm run test -- --run
+
+      - name: Build
+        run: pnpm run build
