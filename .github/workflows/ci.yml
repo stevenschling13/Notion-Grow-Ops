@@ -6,29 +6,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # If no lockfile, set up Node without caching to avoid error
-      - uses: actions/setup-node@v4
-        if: ${{ hashFiles('pnpm-lock.yaml') == '' }}
-        with:
-          node-version: '20'
-
-      # If lockfile exists, enable pnpm cache
-      - uses: actions/setup-node@v4
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-
+      # Install pnpm first, before setup-node tries to use it for caching
       - uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
+      # Set up Node with pnpm caching (pnpm is now available)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
       - run: pnpm --version
-      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm install --frozen-lockfile
 
       - run: pnpm run build
       - run: pnpm run lint
-      - run: pnpm run typecheck || true
+      - run: pnpm run typecheck
       - run: pnpm test -- --run
