@@ -1,22 +1,29 @@
 import { FastifyInstance } from "fastify";
-import { createHmac, timingSafeEqual } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
-import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import {
+  AnalyzeRequestSchema,
+  AnalyzeResponseSchema,
+  type AnalyzeJob,
+} from "../domain/payload.js";
+import {
+  mapWritebacksToPhotos,
+  buildHistoryProps,
+  buildHistoryKey,
+} from "../domain/mapping.js";
+import { verifySignature } from "../security/hmac.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
     config: { rawBody: true },
   }, async (req, reply) => {
     // HMAC verify
-    const secret = process.env.HMAC_SECRET || "";
+    const secret = app.config.hmacSecret;
     const sig = req.headers["x-signature"];
-    if (!secret || typeof sig !== "string") {
+    if (typeof sig !== "string") {
       return reply.code(401).send({ error: "unauthorized" });
     }
     const raw = req.rawBody || "";
-    const h = createHmac("sha256", secret).update(raw).digest();
-    const provided = Buffer.from(String(sig), "hex");
-    if (provided.length !== h.length || !timingSafeEqual(h, provided)) {
+    const isValidSignature = verifySignature(raw, secret, sig);
+    if (!isValidSignature) {
       return reply.code(401).send({ error: "bad signature" });
     }
 
@@ -49,8 +56,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
         void photoProps; // placeholder to avoid unused var until Notion client is added
         // await notion.updatePhoto(job.photo_page_url, { ...photoProps, "AI Status": "Reviewed", "Reviewed at": new Date().toISOString() });
 
-        const key = `${job.photo_page_url}|${job.date}`;
-        void key;
+        const key = buildHistoryKey({ photo_page_url: job.photo_page_url, date: job.date });
         const historyProps = buildHistoryProps({
           plant_id: job.plant_id,
           date: job.date,
@@ -58,6 +64,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
           photo_page_url: job.photo_page_url,
           log_entry_url: job.log_entry_url,
           wb: writebacks,
+          key,
         });
         void historyProps;
         // await notion.upsertHistory(sha256(key), historyProps);

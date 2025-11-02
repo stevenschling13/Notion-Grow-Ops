@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import type { Writebacks } from "./payload.js";
 
 export type PhotosUpdate = {
@@ -9,6 +10,10 @@ export type HistoryUpsert = {
   key: string; // sha256(photo_page_url + date)
   properties: Record<string, unknown>;
 };
+
+export function buildHistoryKey(input: { photo_page_url: string; date: string }): string {
+  return createHash("sha256").update(`${input.photo_page_url}|${input.date}`).digest("hex");
+}
 
 // Map writebacks to Photos DB property names
 export function mapWritebacksToPhotos(wb: Writebacks): Record<string, unknown> {
@@ -37,12 +42,14 @@ export function buildHistoryProps(input: {
   photo_page_url: string;
   log_entry_url?: string;
   wb: Writebacks;
+  key: string;
 }): Record<string, unknown> {
   const nameParts = [input.plant_id, input.date, input.angle].filter(Boolean) as string[];
   const props: Record<string, unknown> = {
     Name: nameParts.join(" - "),
     "Related Photo": [input.photo_page_url],
     Date: input.date,
+    Key: input.key,
   };
   if (input.log_entry_url) props["Related Log Entry"] = [input.log_entry_url];
   if (input.plant_id) props["userDefined:ID"] = input.plant_id;
