@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import { createNotionService } from "../integrations/notion.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -27,6 +28,14 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
+    let notion;
+    try {
+      notion = createNotionService();
+    } catch (error) {
+      req.log.error({ err: error }, "unable to construct Notion client");
+      return reply.code(500).send({ error: "notion configuration error" });
+    }
+
     const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
@@ -46,11 +55,14 @@ export default async function analyzeRoute(app: FastifyInstance) {
 
         // 3) map and write to Notion (omitted: client calls)
         const photoProps = mapWritebacksToPhotos(writebacks);
-        void photoProps; // placeholder to avoid unused var until Notion client is added
-        // await notion.updatePhoto(job.photo_page_url, { ...photoProps, "AI Status": "Reviewed", "Reviewed at": new Date().toISOString() });
+        const reviewedAt = new Date().toISOString();
+        await notion.updatePhoto(job.photo_page_url, {
+          ...photoProps,
+          "AI Status": "Reviewed",
+          "Reviewed at": reviewedAt,
+        });
 
-        const key = `${job.photo_page_url}|${job.date}`;
-        void key;
+        const key = createHash("sha256").update(`${job.photo_page_url}|${job.date}`).digest("hex");
         const historyProps = buildHistoryProps({
           plant_id: job.plant_id,
           date: job.date,
@@ -59,8 +71,11 @@ export default async function analyzeRoute(app: FastifyInstance) {
           log_entry_url: job.log_entry_url,
           wb: writebacks,
         });
-        void historyProps;
-        // await notion.upsertHistory(sha256(key), historyProps);
+        await notion.upsertHistory({
+          key,
+          photo_page_url: job.photo_page_url,
+          properties: historyProps,
+        });
 
         return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
       } catch (e: unknown) {
