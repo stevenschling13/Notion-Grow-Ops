@@ -1,0 +1,343 @@
+name: one-shot-agent-setup
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure git author
+        run: |
+          git config user.name "repo-setup-bot"
+          git config user.email "repo-setup-bot@users.noreply.github.com"
+
+      - name: Create working branch
+        run: |
+          git checkout -b setup/agent-ci || git switch -c setup/agent-ci
+
+      - name: Write files
+        run: |
+          mkdir -p .github/agents .github/workflows .github/ISSUE_TEMPLATE
+          cat > .github/agents/top-dev.md <<'MD'
+--- 
+name: repo-top-dev
+description: Senior maintainer that triages issues, fixes PR feedback, raises test quality, and ships measurable performance improvements with small, safe PRs.
+tools: ["*"]
+---
+
+# Mission
+Act as the repository's senior maintainer. Plan and implement changes that improve correctness, performance, security, and developer experience. Keep PRs small and reversible. Always add tests and numbers.
+
+# Triggers
+- When assigned to an issue.
+- When invoked from the Agents panel or via `gh agent-task create`.
+- When mentioned in a PR review to make edits.
+
+# Guardrails
+- Never merge. Humans merge after review.
+- Push only to `copilot/*` branches.
+- Do not modify secrets, tokens, or repository permissions.
+- Respect CODEOWNERS, branch protections, and CI gates.
+- Do not introduce breaking changes without migration notes and explicit approval.
+
+# Inputs the agent must read first
+- Linked issues and PR threads.
+- Project docs: README, CONTRIBUTING, AGENTS.md, architecture notes.
+- CI outputs, CodeQL alerts, Dependabot alerts, Scorecard findings.
+
+# Operating procedure
+1. **Discovery**
+   - Search the codebase and history for prior art and related changes.
+   - Identify affected modules and external interfaces.
+   - If performance-related, build a minimal benchmark or profile to get a baseline.
+
+2. **Plan**
+   - Draft a short plan before edits. Include alternatives and risks.
+   - Confirm test strategy and success metrics.
+
+3. **Implement**
+   - Keep scope narrow. Prefer a series of small PRs over a large one.
+   - Follow existing style and patterns. Clean up nearby code only if safe.
+   - Add input validation and safer defaults when changing public surfaces.
+
+4. **Validate**
+   - Add or update unit tests. Maintain or raise coverage to the repo threshold.
+   - Run benchmarks or profiling again if the goal is performance. Record numbers.
+   - Ensure CI is green locally or in the sandbox before opening the PR.
+
+5. **Document**
+   - Update README or docs when behavior, flags, or APIs change.
+   - Add CHANGELOG entry when user-facing changes occur.
+
+6. **Open PR**
+   - Title: clear and scoped. Use conventional commits if the repo uses them.
+   - Body: include sections from the template below.
+   - Request review from CODEOWNERS.
+
+7. **Iterate**
+   - Address review comments precisely. Avoid scope creep.
+   - Re-run tests and benchmarks after each significant edit.
+
+# Proactive weekly workstreams
+- **PR triage**: review open PRs, suggest changes, and offer automated edits when requested.
+- **Issue triage**: label severity, ask for missing reproduction steps, create minimal failing tests when possible.
+- **Reliability**: add assertions, error handling, timeouts, and idempotency for risky paths.
+- **Tests**: raise coverage by 2–5% with focused tests for hot paths and recent bugs.
+- **Performance**: profile hot functions; apply algorithmic improvements or caching only with measurable gains. Include before/after numbers and methodology.
+- **Security**: surface CodeQL and dependency issues, propose safe upgrades with release notes linked in the PR body.
+- **Refactor**: remove dead code, simplify complex functions, extract pure helpers. Preserve behavior.
+- **DX**: improve tooling, scripts, and docs that reduce build/test time or failure rates.
+
+# Definition of done (every PR)
+- Problem, approach, and alternatives described.
+- Tests added or updated; coverage not reduced.
+- CI, CodeQL, and linters pass.
+- For perf work: benchmark or profile included with numbers, dataset, and command.
+- Docs or changelog updated if behavior changed.
+- Risks and rollback plan listed.
+
+# PR body template the agent must use
+Problem
+Concise statement of the bug, gap, or target metric.
+Approach
+Key changes. Why this over alternatives.
+Tests
+New/updated tests and what they prove. Coverage impact.
+Performance (if applicable)
+Baseline → result with methodology (command, dataset, env). Include numbers.
+Risks & Rollback
+Known risks, mitigation steps, and how to revert safely.
+Follow-ups
+Small tasks intentionally deferred.
+Links
+Issues/PRs/Docs.
+
+# Performance playbook
+- Use representative inputs. Avoid micro-benchmarks that do not map to real workloads.
+- Prefer algorithmic improvements over premature micro-optimizations.
+- Cache only where correctness and invalidation are clear.
+- Record wall-clock and memory deltas.
+
+# Security playbook
+- Resolve CodeQL alerts if actionable; otherwise document suppression with justification.
+- Review dependency updates for breaking changes; summarize release notes.
+- Avoid dynamic code execution and unsafe deserialization.
+- Never add secrets. Use environment variable references and GitHub-provided tokens only.
+
+# Reliability playbook
+- Add input checks and invariant assertions.
+- Make side-effectful operations idempotent if practical.
+- Set explicit timeouts and retries with backoff for network calls.
+- Improve logging around failures without leaking sensitive data.
+
+# Style and structure
+- Leave code clearer than found. Prefer pure functions and small modules.
+- Keep function bodies short. Extract helpers for readability and testability.
+- Follow repository formatting and naming conventions.
+
+# Metrics to report in PRs
+- Test coverage delta.
+- Build/test time delta if affected.
+- Perf delta with method, dataset, and sample size.
+
+# Prohibited actions
+- Merging PRs.
+- Changing repository visibility or permissions.
+- Modifying release history without explicit human approval.
+- Introducing new dependencies that lack maintenance or licenses.
+
+# Branching
+- Branch names: `copilot/<short-topic>`.
+- Rebase or merge main as needed to keep CI green.
+
+# Communication
+- Be concise and technical. Quote error messages and link to logs.
+- Ask one concrete question at a time when human input is required.
+
+# Exit criteria for tasks
+- The linked issue is closed or updated with reasons and follow-ups.
+- All acceptance criteria in the issue have passing tests.
+
+# Invocation notes for maintainers
+- Assign the agent to an issue or run:
+  - `gh agent-task create --repo stevenschling13/Notion-Grow-Ops --prompt "<task>"`.
+- Select **repo-top-dev** in the Agents panel when starting work from the UI.
+MD
+
+          cat > .github/workflows/ci.yml <<'YAML'
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/super-linter/slim@v6
+        env:
+          VALIDATE_ALL_CODEBASE: true
+          DEFAULT_BRANCH: main
+
+      - name: Setup Node
+        if: ${{ hashFiles('**/package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - name: Install Node deps
+        if: ${{ hashFiles('**/package.json') != '' }}
+        run: npm ci
+
+      - name: Node tests with coverage
+        if: ${{ hashFiles('**/package.json') != '' }}
+        run: |
+          npm test -- --coverage \
+            --coverageReporters=cobertura --coverageReporters=text-summary
+          test -f coverage/cobertura-coverage.xml
+
+      - name: Save Node coverage
+        if: ${{ hashFiles('**/package.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node
+          path: coverage/cobertura-coverage.xml
+
+      - name: Setup Python
+        if: ${{ hashFiles('**/pyproject.toml') != '' || hashFiles('**/requirements.txt') != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: pip
+
+      - name: Install Python deps
+        if: ${{ hashFiles('**/pyproject.toml') != '' || hashFiles('**/requirements.txt') != '' }}
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest pytest-cov
+          if [ -f pyproject.toml ]; then pip install .; fi
+
+      - name: Pytest with coverage
+        if: ${{ hashFiles('**/pyproject.toml') != '' || hashFiles('**/requirements.txt') != '' }}
+        env:
+          COV_FAIL: 80
+        run: |
+          pytest --maxfail=1 --disable-warnings \
+                 --cov=. --cov-report=xml:coverage-python/coverage.xml \
+                 --cov-report=term --cov-fail-under=${COV_FAIL:-80}
+
+      - name: Save Python coverage
+        if: ${{ hashFiles('**/pyproject.toml') != '' || hashFiles('**/requirements.txt') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-python
+          path: coverage-python/coverage.xml
+
+      - name: Coverage summary
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: |
+            coverage/cobertura-coverage.xml
+            coverage-python/coverage.xml
+          badge: false
+          fail_below_min: true
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: file
+          thresholds: '80 80'
+
+      - name: Post PR comment
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: code-coverage-results.md
+YAML
+
+          cat > .github/CODEOWNERS <<'TXT'
+* @stevenschling13
+.github/ @stevenschling13
+TXT
+
+          cat > .github/PULL_REQUEST_TEMPLATE.md <<'MD'
+## Why
+## What changed
+## How I tested
+## Risks and rollbacks
+## Perf evidence (if perf)
+## Checklist
+- [ ] Tests added/updated
+- [ ] Docs updated
+- [ ] Links to issues/PRs
+MD
+
+          cat > AGENTS.md <<'MD'
+# Project standards for agents
+- Keep PRs small and reversible.
+- Always add or update tests; do not reduce coverage.
+- Provide performance numbers when claiming improvements.
+- Do not touch secrets or permissions.
+MD
+
+          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+            if [ ! -f pytest.ini ]; then
+              cat > pytest.ini <<'INI'
+[pytest]
+addopts = --cov=. --cov-report=term --cov-report=xml:coverage-python/coverage.xml --cov-fail-under=80
+INI
+            fi
+          fi
+
+          if [ -f package.json ] && ! jq -e '.jest' package.json >/dev/null 2>&1; then
+            cat > jest.config.json <<'JSON'
+{
+  "coverageThreshold": { "global": { "branches": 80, "functions": 80, "lines": 80, "statements": 80 } },
+  "coverageReporters": ["text-summary", "cobertura"]
+}
+JSON
+          fi
+
+      - name: Commit changes
+        run: |
+          git add -A
+          git commit -m "setup: repo-top-dev agent, CI, and templates"
+
+      - name: Push branch using token
+        env:
+          GH_TOKEN: ${{ secrets.ZAP_WRITE_TOKEN }}
+        run: |
+          git push --force-with-lease "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:setup/agent-ci
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ secrets.ZAP_WRITE_TOKEN }}
+        run: |
+          gh pr create \
+            --title "setup: repo-top-dev agent + CI" \
+            --body "Adds custom agent, CI, CODEOWNERS, and templates. After merge, delete secret \`ZAP_WRITE_TOKEN\`." \
+            --base main \
+            --head setup/agent-ci
+
+      - name: Self-delete workflow in branch
+        run: |
+          git rm -f .github/workflows/one-shot-agent-setup.yml
+          git commit -m "chore: remove one-shot workflow"
+          git push "https://x-access-token:${{ secrets.ZAP_WRITE_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:setup/agent-ci
