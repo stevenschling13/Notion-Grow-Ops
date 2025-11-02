@@ -4,6 +4,25 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import analyzeRoute from "./routes/analyze.js";
 
+/**
+ * Builds and configures the Fastify server instance with all middleware and routes.
+ * 
+ * Sets up:
+ * - Raw body parsing for HMAC verification
+ * - Security headers via Helmet
+ * - Rate limiting with bypass support
+ * - Request/connection timeouts
+ * - Body size limits
+ * - All application routes
+ * 
+ * @returns Configured Fastify server instance ready to listen
+ * 
+ * @example
+ * ```typescript
+ * const server = await buildServer();
+ * await server.listen({ port: 8080 });
+ * ```
+ */
 export async function buildServer() {
   const app = Fastify({
     logger: true,
