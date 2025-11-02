@@ -66,11 +66,12 @@ export async function buildServer() {
     cache: 10000, // Cache up to 10,000 different IPs
     skipOnError: false, // Don't skip rate limiting if there's an error
     // Allow bypassing rate limits with a secret token for trusted services
+    // Bypass requests get a special key that doesn't count against the IP limit
     keyGenerator: (req) => {
       const bypassToken = process.env.RATE_LIMIT_BYPASS_TOKEN;
       if (bypassToken && req.headers["x-rate-limit-bypass"] === bypassToken) {
-        // Return null to skip rate limiting for this request
-        return null as unknown as string;
+        // Use a unique key per bypass request to effectively disable limiting
+        return `bypass:${Date.now()}:${Math.random()}`;
       }
       return req.ip;
     },
