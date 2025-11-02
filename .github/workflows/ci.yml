@@ -6,26 +6,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # If no lockfile, set up Node without caching to avoid error
-      - uses: actions/setup-node@v4
-        if: ${{ hashFiles('pnpm-lock.yaml') == '' }}
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: '20'
+          version: 9
 
-      # If lockfile exists, enable pnpm cache
       - uses: actions/setup-node@v4
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
-      - name: Install pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10 --activate
-
-      - run: pnpm --version
       - run: pnpm install --frozen-lockfile=false
 
       - run: pnpm run build
