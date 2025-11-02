@@ -1,12 +1,22 @@
 import { FastifyInstance } from "fastify";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual, createHash } from "crypto";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import { createNotionClient } from "../notion/client.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
     config: { rawBody: true },
   }, async (req, reply) => {
+    // Initialize Notion client if configured
+    let notion: ReturnType<typeof createNotionClient> | undefined;
+    try {
+      if (process.env.NOTION_API_TOKEN) {
+        notion = createNotionClient();
+      }
+    } catch (error) {
+      app.log.warn({ error }, "Notion client initialization failed, continuing without Notion integration");
+    }
     // HMAC verify
     const secret = process.env.HMAC_SECRET || "";
     const sig = req.headers["x-signature"];
@@ -44,23 +54,27 @@ export default async function analyzeRoute(app: FastifyInstance) {
           "Sev": "Low",
         } as const;
 
-        // 3) map and write to Notion (omitted: client calls)
-        const photoProps = mapWritebacksToPhotos(writebacks);
-        void photoProps; // placeholder to avoid unused var until Notion client is added
-        // await notion.updatePhoto(job.photo_page_url, { ...photoProps, "AI Status": "Reviewed", "Reviewed at": new Date().toISOString() });
+        // 3) map and write to Notion
+        if (notion) {
+          const photoProps = mapWritebacksToPhotos(writebacks);
+          await notion.updatePhoto(job.photo_page_url, { 
+            ...photoProps, 
+            "AI Status": "Reviewed", 
+            "Reviewed at": new Date().toISOString() 
+          });
 
-        const key = `${job.photo_page_url}|${job.date}`;
-        void key;
-        const historyProps = buildHistoryProps({
-          plant_id: job.plant_id,
-          date: job.date,
-          angle: job.angle,
-          photo_page_url: job.photo_page_url,
-          log_entry_url: job.log_entry_url,
-          wb: writebacks,
-        });
-        void historyProps;
-        // await notion.upsertHistory(sha256(key), historyProps);
+          const key = `${job.photo_page_url}|${job.date}`;
+          const keyHash = createHash("sha256").update(key).digest("hex");
+          const historyProps = buildHistoryProps({
+            plant_id: job.plant_id,
+            date: job.date,
+            angle: job.angle,
+            photo_page_url: job.photo_page_url,
+            log_entry_url: job.log_entry_url,
+            wb: writebacks,
+          });
+          await notion.upsertHistory(keyHash, historyProps);
+        }
 
         return { photo_page_url: job.photo_page_url, status: "ok", writebacks };
       } catch (e: unknown) {
