@@ -23,13 +23,13 @@ A TypeScript/Node.js application that provides a Fastify-based API server for an
 ## Prerequisites
 
 - Node.js >= 20
-- pnpm 9
+- pnpm >= 9.0.0
 
 ## Installation
 
 ```bash
 # Install pnpm if you haven't already
-npm install -g pnpm@9
+npm install -g pnpm@^9.0.0
 
 # Install dependencies
 pnpm install
