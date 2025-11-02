@@ -32,6 +32,11 @@ export class NotionClient {
    * Creates a new page if it doesn't exist, or updates if it does
    * @param key - Unique identifier for the history entry (e.g., sha256 hash)
    * @param properties - Properties for the history entry
+   * 
+   * Note: This implementation uses Notion SDK v5.x which introduced the "Data Sources" API.
+   * In v5.x, databases are queried using client.dataSources.query() with data_source_id,
+   * replacing the older databases.query() API from v2.x-4.x.
+   * However, page creation still uses database_id in the parent field.
    */
   async upsertHistory(key: string, properties: Record<string, unknown>): Promise<void> {
     // First, check if a page with this key exists using the database query
@@ -41,7 +46,7 @@ export class NotionClient {
       throw new Error("NOTION_HISTORY_DB_ID environment variable is not set");
     }
 
-    // Query for existing page with the same key
+    // Query for existing page with the same key using dataSources API (v5.x)
     const queryParams: QueryDataSourceParameters = {
       data_source_id: historyDbId,
       filter: {
