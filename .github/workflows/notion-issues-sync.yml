@@ -58,9 +58,9 @@ jobs:
               title: '${{ github.event.inputs.issue_title }}',
               body: 'This issue was created automatically to test the Notion integration.\n\nTriggered by workflow_dispatch at ${{ github.run_id }}'
             });
-            
+
             let finalState = issue.state;
-            
+
             // Close immediately if requested state is closed
             if ('${{ github.event.inputs.issue_state }}' === 'closed') {
               await github.rest.issues.update({
@@ -72,7 +72,7 @@ jobs:
               finalState = 'closed';
               console.log(`Closed test issue #${issue.number} as requested`);
             }
-            
+
             core.setOutput('issue_number', issue.number);
             core.setOutput('issue_url', issue.html_url);
             core.setOutput('issue_title', issue.title);
@@ -95,6 +95,8 @@ jobs:
             core.setOutput('issue_url', issue.html_url);
             core.setOutput('issue_title', issue.title);
             core.setOutput('issue_state', issue.state);
+            core.setOutput('issue_labels', JSON.stringify(issue.labels));
+            core.setOutput('issue_assignee', issue.assignee ? issue.assignee.login : '');
             return issue.number;
 
       - name: Sync issue to Notion
@@ -105,8 +107,8 @@ jobs:
           ISSUE_TITLE: ${{ github.event_name == 'issues' && github.event.issue.title || steps.create-issue.outputs.issue_title || steps.get-issue.outputs.issue_title }}
           ISSUE_URL: ${{ github.event_name == 'issues' && github.event.issue.html_url || steps.create-issue.outputs.issue_url || steps.get-issue.outputs.issue_url }}
           ISSUE_STATE: ${{ github.event_name == 'issues' && github.event.issue.state || steps.create-issue.outputs.issue_state || steps.get-issue.outputs.issue_state }}
-          ISSUE_LABELS: ${{ github.event_name == 'issues' && toJSON(github.event.issue.labels) || '[]' }}
-          ISSUE_ASSIGNEE: ${{ github.event_name == 'issues' && (github.event.issue.assignee && github.event.issue.assignee.login || '') || '' }}
+          ISSUE_LABELS: ${{ github.event_name == 'issues' && toJSON(github.event.issue.labels) || steps.get-issue.outputs.issue_labels || '[]' }}
+          ISSUE_ASSIGNEE: ${{ github.event_name == 'issues' && (github.event.issue.assignee.login || '') || steps.get-issue.outputs.issue_assignee || '' }}
         run: |
           node --input-type=module <<'EOF'
           import { Client } from '@notionhq/client';
