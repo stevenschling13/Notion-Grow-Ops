@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { createHmac, timingSafeEqual } from "crypto";
-import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
+import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
@@ -8,14 +8,17 @@ export default async function analyzeRoute(app: FastifyInstance) {
     config: { rawBody: true },
   }, async (req, reply) => {
     // HMAC verify
-    const secret = process.env.HMAC_SECRET || "";
+    const secret = process.env.HMAC_SECRET;
     const sig = req.headers["x-signature"];
     if (!secret || typeof sig !== "string") {
       return reply.code(401).send({ error: "unauthorized" });
     }
-    const raw = req.rawBody || "";
+    const raw = req.rawBody;
+    if (typeof raw !== "string") {
+      return reply.code(400).send({ error: "invalid request body" });
+    }
     const h = createHmac("sha256", secret).update(raw).digest();
-    const provided = Buffer.from(String(sig), "hex");
+    const provided = Buffer.from(sig, "hex");
     if (provided.length !== h.length || !timingSafeEqual(h, provided)) {
       return reply.code(401).send({ error: "bad signature" });
     }
@@ -27,7 +30,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
     }
     const { jobs } = parsed.data;
 
-    const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
+    const results = await Promise.all(jobs.map(async (job) => {
       try {
         // 1) download first file (omitted)
         // 2) call vision provider (omitted; return mock values)
@@ -71,7 +74,7 @@ export default async function analyzeRoute(app: FastifyInstance) {
 
     const response = {
       results,
-      errors: results.filter((r) => r.status === "error").map((r) => r.error || "error"),
+      errors: results.filter((r) => r.status === "error").map((r) => r.error ?? "unknown error"),
     };
     const validated = AnalyzeResponseSchema.parse(response);
     return reply.code(200).send(validated);
