@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import rawBody from "fastify-raw-body";
 import analyzeRoute from "./routes/analyze.js";
+import healthRoutes from "./routes/health.js";
 
 export async function buildServer() {
   const app = Fastify({
@@ -20,6 +21,9 @@ export async function buildServer() {
   applySecurityHeaders(app);
   applyInMemoryRateLimit(app);
 
+  // Register health check endpoints (no rate limiting or auth required)
+  await app.register(healthRoutes);
+  
   await app.register(analyzeRoute);
   return app;
 }
