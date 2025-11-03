@@ -72,7 +72,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
-          scan-ref: '.'
+          scan-ref: '.''
           format: 'sarif'
           output: 'trivy-results.sarif'
 
