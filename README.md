@@ -165,6 +165,37 @@ pnpm run dev
 
 The server will start on `http://localhost:8080` with hot reload enabled. Any changes to TypeScript files will automatically restart the server.
 
+### Recommended Developer Tools
+
+#### GitHub Copilot CLI
+
+The GitHub Copilot CLI brings AI-powered assistance directly to your terminal:
+
+```bash
+# Install globally
+npm install -g @github/copilot
+
+# Authenticate with GitHub
+copilot auth
+
+# Get command suggestions
+copilot suggest "run tests in watch mode"
+
+# Explain complex commands
+copilot explain "git rebase -i HEAD~3"
+
+# Get help with Git operations
+copilot suggest "undo last commit but keep changes"
+```
+
+**Benefits:**
+- 🤖 AI-powered command suggestions
+- 📚 Instant explanations of complex commands
+- ⚡ Faster terminal workflows
+- 🔍 Context-aware assistance
+
+Learn more: [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli)
+
 ## 🏗️ Building and Deployment
 
 ### Building for Production
