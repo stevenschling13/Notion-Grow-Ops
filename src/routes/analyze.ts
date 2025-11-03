@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { createHmac, timingSafeEqual } from "crypto";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
+import { analyzeJob } from "../domain/analysis.js";
 
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
@@ -30,19 +31,8 @@ export default async function analyzeRoute(app: FastifyInstance) {
     const results = await Promise.all(jobs.map(async (job: AnalyzeJob) => {
       try {
         // 1) download first file (omitted)
-        // 2) call vision provider (omitted; return mock values)
-        const writebacks = {
-          "AI Summary": "Healthy canopy, RH slightly low for stage.",
-          "Health 0-100": 88,
-          "AI Next Step": "Raise light",
-          "VPD OK": true,
-          "DLI OK": false,
-          "CO2 OK": true,
-          "Trend": "Improving",
-          "DLI mol": 36.7,
-          "VPD kPa": 1.38,
-          "Sev": "Low",
-        } as const;
+        // 2) call vision provider (omitted; heuristic analysis used for now)
+        const { writebacks } = analyzeJob(job);
 
         // 3) map and write to Notion (omitted: client calls)
         const photoProps = mapWritebacksToPhotos(writebacks);
