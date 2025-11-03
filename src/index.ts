@@ -1,3 +1,7 @@
 import { buildServer } from "./server.js";
-const port = Number(process.env.PORT || 8080);
-buildServer().then((app) => app.listen({ port, host: "0.0.0.0" }));
+import { loadConfig } from "./config.js";
+
+// Validate environment variables on startup
+const config = loadConfig();
+
+buildServer(config).then((app) => app.listen({ port: config.port, host: "0.0.0.0" }));

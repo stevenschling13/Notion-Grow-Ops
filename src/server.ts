@@ -1,8 +1,10 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import rawBody from "fastify-raw-body";
 import analyzeRoute from "./routes/analyze.js";
+import healthRoutes from "./routes/health.js";
+import type { Config } from "./config.js";
 
-export async function buildServer() {
+export async function buildServer(config?: Config) {
   const app = Fastify({
     logger: true,
     bodyLimit: 1024 * 1024, // 1 MiB
@@ -18,8 +20,11 @@ export async function buildServer() {
   });
 
   applySecurityHeaders(app);
-  applyInMemoryRateLimit(app);
+  applyInMemoryRateLimit(app, config);
 
+  // Register health check endpoints (no rate limiting or auth required)
+  await app.register(healthRoutes);
+  
   await app.register(analyzeRoute);
   return app;
 }
@@ -41,13 +46,15 @@ function applySecurityHeaders(app: FastifyInstance) {
   });
 }
 
-function applyInMemoryRateLimit(app: FastifyInstance) {
+function applyInMemoryRateLimit(app: FastifyInstance, config?: Config) {
   const windowMs = 60_000;
   const maxRequests = 100;
   const requestCounts = new Map<string, { count: number; expiresAt: number }>();
 
   app.addHook("onRequest", async (request, reply) => {
-    if (process.env.RATE_LIMIT_BYPASS_TOKEN && request.headers["x-rate-limit-bypass"] === process.env.RATE_LIMIT_BYPASS_TOKEN) {
+    // Use config if provided, otherwise fall back to process.env for tests
+    const bypassToken = config?.rateLimitBypassToken ?? process.env.RATE_LIMIT_BYPASS_TOKEN;
+    if (bypassToken && request.headers["x-rate-limit-bypass"] === bypassToken) {
       return;
     }
 
