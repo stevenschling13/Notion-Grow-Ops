@@ -51,6 +51,29 @@ This project adheres to a code of conduct that all contributors are expected to 
    pnpm run dev
    ```
 
+### Optional: Install GitHub Copilot CLI (Recommended)
+
+The GitHub Copilot CLI brings AI-powered assistance directly to your terminal, helping with commands, explanations, and code suggestions.
+
+```bash
+# Install GitHub Copilot CLI globally
+npm install -g @github/copilot
+
+# Authenticate (you'll need a GitHub account with Copilot access)
+copilot auth
+
+# Usage examples:
+copilot explain "git rebase -i HEAD~3"
+copilot suggest "how do I run tests in watch mode"
+```
+
+**Benefits:**
+- Get command suggestions and explanations
+- Quickly understand complex commands
+- Improve productivity with AI-powered terminal assistance
+
+For more information, visit: https://githubnext.com/projects/copilot-cli
+
 ## Making Changes
 
 1. **Create a feature branch** from `main`:
