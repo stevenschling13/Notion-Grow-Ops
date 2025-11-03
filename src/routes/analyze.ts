@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { createHmac, timingSafeEqual } from "crypto";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema, type AnalyzeJob } from "../domain/payload.js";
 import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
@@ -6,7 +6,7 @@ import { mapWritebacksToPhotos, buildHistoryProps } from "../domain/mapping.js";
 export default async function analyzeRoute(app: FastifyInstance) {
   app.post("/analyze", {
     config: { rawBody: true },
-  }, async (req, reply) => {
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
     // HMAC verify
     const secret = process.env.HMAC_SECRET || "";
     const sig = req.headers["x-signature"];
